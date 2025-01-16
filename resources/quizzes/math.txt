@@ -1,0 +1,17 @@
+Matematike
+MC,10,30:Sa bejne 2+2?
+2
+3
+True:4
+5
+.
+QA,10,40:Nje figure gjeometrike me 4 kende te drejta.
+Katror
+MC,10,30:Sa eshte x? x+10=9
+True:-1
+1
+10
+9
+.
+TF,5,20:A eshte e vertete se shuma e cdo trekendeshi eshte 180 grade?
+True
