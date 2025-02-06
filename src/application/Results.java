@@ -1,21 +1,19 @@
 package application;
 
-import java.util.Comparator;
-import java.util.HashMap;
 import java.util.LinkedList;
 import java.util.List;
-import java.util.Map;
 
 public class Results implements Comparable<Results> {
-	private int quizId;
-	private int userId;
+	private long resultId = -1;
+	private long quizId;
+	private long userId;
 	private int points;
 	private int totalPoints;
 	private double percentageCorrect;
 	private List<Boolean> answerResults;
 	private boolean finished;
 
-	public Results(int quizId, int userId, int points, int totalPoints) {
+	public Results(long quizId, long userId, int points, int totalPoints) {
 		this.quizId = quizId;
 		this.userId = userId;
 		this.points = points;
@@ -23,9 +21,19 @@ public class Results implements Comparable<Results> {
 		this.answerResults = new LinkedList<>();
 	}
 
+	public Results(long resultId, long quizId, long userId, int points, int totalPoints) {
+		this.resultId = resultId;
+		this.quizId = quizId;
+		this.userId = userId;
+		this.points = points;
+		this.totalPoints = totalPoints;
+		this.answerResults = new LinkedList<>();
+		calcQuiz();
+	}
+
 	public Results(String quizId, String userId, String points, String totalPoints, String answerResults) {
-		this.quizId = Integer.parseInt(quizId);
-		this.userId = Integer.parseInt(userId);
+		this.quizId = Long.parseLong(quizId);
+		this.userId = Long.parseLong(userId);
 		this.points = Integer.parseInt(points);
 		this.totalPoints = Integer.parseInt(totalPoints);
 		this.answerResults = new LinkedList<>();
@@ -36,19 +44,25 @@ public class Results implements Comparable<Results> {
 				this.answerResults.add(false);
 			}
 		}
-		finishQuiz();
+		calcQuiz();
+	}
+
+	public void calcQuiz() {
+		finished = true;
+		if (totalPoints != 0)
+			percentageCorrect = (double) points / totalPoints * 100.0;
 	}
 
 	public void finishQuiz() {
-		finished = true;
-		percentageCorrect = (double) points / totalPoints * 100.0;
+		calcQuiz();
+		LeaderboardDB.saveResult(this);
 	}
 
-	public int getQuizId() {
+	public long getQuizId() {
 		return quizId;
 	}
 
-	public int getUserId() {
+	public long getUserId() {
 		return userId;
 	}
 
@@ -101,6 +115,14 @@ public class Results implements Comparable<Results> {
 
 	public boolean isFinished() {
 		return finished;
+	}
+
+	public long getResultId() {
+		return resultId;
+	}
+
+	public void setResultId(long resultId) {
+		this.resultId = resultId;
 	}
 
 	@Override

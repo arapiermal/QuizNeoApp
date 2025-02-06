@@ -3,8 +3,10 @@ package application;
 import java.io.File;
 import java.io.IOException;
 import java.util.Map;
+import java.util.Optional;
 import java.util.PriorityQueue;
 
+import ericrypt.FileCrypt;
 import javafx.application.Application;
 import javafx.geometry.Insets;
 import javafx.collections.FXCollections;
@@ -18,9 +20,11 @@ import javafx.scene.control.Alert;
 import javafx.scene.control.Alert.AlertType;
 import javafx.scene.control.Button;
 import javafx.scene.control.Label;
+import javafx.scene.control.PasswordField;
 import javafx.scene.control.TableColumn;
 import javafx.scene.control.TableView;
 import javafx.scene.control.TextField;
+import javafx.scene.control.TextInputDialog;
 import javafx.scene.control.ToolBar;
 import javafx.scene.control.cell.PropertyValueFactory;
 import javafx.scene.layout.BorderPane;
@@ -30,15 +34,18 @@ import javafx.scene.layout.Region;
 import javafx.scene.layout.VBox;
 import javafx.scene.text.Font;
 import javafx.scene.text.Text;
+import tonichat.MessagesStage;
 
 public class Main extends Application {
 	private static User currUser;
 	private BorderPane root; // maybe left -> info, top -> toolbox, right select quiz?
 	private Text title;
-	private TextField emailField;
+	private TextField usernameField;
+	private PasswordField passwordField;
 	private Button loginButton;
 	private TextField firstNameField;
 	private TextField lastNameField;
+	private TextField emailField;
 	private Button registerButton;
 	private VBox userLoginVBox;
 	private HBox userDataHBox;
@@ -47,6 +54,9 @@ public class Main extends Application {
 	private ToolBar quizDataToolBar;
 	private Button loadQuizButton;
 	private Button openLeaderboardButton;
+	private Button openMessagesButton;
+	private Button encryptButton;
+	private Button decryptButton;
 	private QuizBox quizBox; // Custom UI element
 	private ResultBox resultBox;
 
@@ -54,30 +64,48 @@ public class Main extends Application {
 	public void start(Stage primaryStage) {
 		try {
 			root = new BorderPane();
-			Scene scene = new Scene(root, 800, 600);
+			Scene scene = new Scene(root, 1200, 700);
 			scene.getStylesheets().add(getClass().getResource("application.css").toExternalForm());
 			primaryStage.setScene(scene);
 			primaryStage.show();
 			primaryStage.setTitle("EQuiz");
 			title = new Text("EQuiz");
 			title.setFont(Font.font("Arial", 36));
-			emailField = new TextField();
-			emailField.setPromptText("Email");
+			usernameField = new TextField();
+			usernameField.setPromptText("Username");
+			usernameField.setMaxWidth(300);
+			passwordField = new PasswordField();
+			passwordField.setPromptText("Password");
+			passwordField.setMaxWidth(300);
+
 			loginButton = new Button("Login");
 			loginButton.setOnAction(e -> loginUser());
+
 			firstNameField = new TextField();
 			firstNameField.setPromptText("First Name");
+			firstNameField.setMaxWidth(300);
 			lastNameField = new TextField();
 			lastNameField.setPromptText("Last Name");
+			lastNameField.setMaxWidth(300);
+			emailField = new TextField();
+			emailField.setPromptText("Email");
+			emailField.setMaxWidth(300);
+
 			registerButton = new Button("Register");
 			registerButton.setOnAction(e -> registerUser());
-			userLoginVBox = new VBox(16, title, emailField, loginButton, firstNameField, lastNameField, registerButton);
+			userLoginVBox = new VBox(16, title, new Text("Username"), usernameField, new Text("Password"),
+					passwordField, loginButton, new Text("First Name"), firstNameField, new Text("Last Name"),
+					lastNameField, new Text("Email"), emailField, registerButton);
 			userLoginVBox.setAlignment(Pos.CENTER);
 			userLoginVBox.setPadding(new Insets(16));
 			root.setCenter(userLoginVBox);
 
 			resultBox = new ResultBox();
+			// Fix taking space while invisible
+			resultBox.managedProperty().bind(resultBox.visibleProperty());
+			//
 			resultBox.setVisible(false);
+
 			root.setRight(resultBox);
 
 			quizBox = new QuizBox(resultBox);
@@ -96,7 +124,15 @@ public class Main extends Application {
 			loadQuizButton.setOnAction(e -> loadQuiz());
 			openLeaderboardButton = new Button("Leaderboard");
 			openLeaderboardButton.setOnAction(e -> openLeaderboard());
-			quizDataToolBar = new ToolBar(loadQuizButton, openLeaderboardButton);
+			openMessagesButton = new Button("Send Messages");
+			openMessagesButton.setOnAction(e -> openMessages());
+			encryptButton = new Button("Encrypt");
+			encryptButton.setOnAction(e -> encryptQuiz());
+			decryptButton = new Button("Decrypt");
+			decryptButton.setOnAction(e -> decryptQuiz());
+
+			quizDataToolBar = new ToolBar(loadQuizButton, openLeaderboardButton, openMessagesButton, encryptButton,
+					decryptButton);
 			quizDataToolBar.setVisible(false);
 			root.setBottom(quizDataToolBar);
 
@@ -105,18 +141,36 @@ public class Main extends Application {
 		}
 	}
 
+	private void openMessages() {
+		TextInputDialog dialog = new TextInputDialog();
+		dialog.setTitle("Open Chat");
+		dialog.setHeaderText("Enter Username to Chat With:");
+		dialog.setContentText("Username:");
+
+		Optional<String> result = dialog.showAndWait();
+		result.ifPresent(username -> {
+			MessagesStage chat = MessagesStage.getMessagesWith(username);
+			if (chat != null) {
+				chat.show();
+			} else {
+				// Main.displayAlert("User Not Found", "The username you entered does not
+				// exist.", "");
+			}
+		});
+	}
+
 	private void openLeaderboard() {
-		Map<Integer, PriorityQueue<Results>> leaderboardData = Leaderboard.getLeaderboard().getAllResults();
+		Map<Long, PriorityQueue<Results>> leaderboardData = Leaderboard.getLeaderboard().getAllResults();
 
 		Stage stage = new Stage();
 		stage.setTitle("Leaderboard");
 
 		TableView<Results> tableView = new TableView<>();
 
-		TableColumn<Results, Integer> quizIdColumn = new TableColumn<>("Quiz ID");
+		TableColumn<Results, Long> quizIdColumn = new TableColumn<>("Quiz ID");
 		quizIdColumn.setCellValueFactory(new PropertyValueFactory<>("quizId"));
 
-		TableColumn<Results, Integer> userIdColumn = new TableColumn<>("User ID");
+		TableColumn<Results, Long> userIdColumn = new TableColumn<>("User ID");
 		userIdColumn.setCellValueFactory(new PropertyValueFactory<>("userId"));
 
 		TableColumn<Results, Integer> pointsColumn = new TableColumn<>("Points");
@@ -131,7 +185,7 @@ public class Main extends Application {
 		tableView.getColumns().addAll(quizIdColumn, userIdColumn, pointsColumn, totalPointsColumn, percentageColumn);
 
 		ObservableList<Results> data = FXCollections.observableArrayList();
-		for (Map.Entry<Integer, PriorityQueue<Results>> entry : leaderboardData.entrySet()) {
+		for (Map.Entry<Long, PriorityQueue<Results>> entry : leaderboardData.entrySet()) {
 			data.addAll(entry.getValue());
 		}
 		tableView.setItems(data);
@@ -143,22 +197,19 @@ public class Main extends Application {
 	}
 
 	private void loginUser() {
-		String email = emailField.getText().trim();
-		if (!email.isBlank()) {
-			currUser = Login.getLoginData().loginUser(email);
+		String username = usernameField.getText().trim();
+		String password = passwordField.getText();
+		if (!username.isBlank() && !password.isBlank()) {
+			currUser = LoginDB.loginUser(username, password);
 			if (currUser == null) {
-				// ERROR
-				displayAlert("ERROR", "Email not found", "The email does not exist in our database");
+				// ERROR already dealt with in LoginDB
 			} else {
+
 				// Continue, show menu to select quiz
-				root.setCenter(quizBox);
-				labelFullName.setText(currUser.toString());
-				userDataHBox.setVisible(true);
-				resultBox.setVisible(true);
-				quizDataToolBar.setVisible(true);
+				loggedIn();
 			}
 		} else {
-			displayAlert("ERROR", "Blank email field", "The email you entered is blank");
+			displayAlert("ERROR", "Empty username or password", "");
 		}
 	}
 
@@ -175,25 +226,46 @@ public class Main extends Application {
 	}
 
 	private void registerUser() {
+		String username = usernameField.getText().trim();
+		String password = passwordField.getText();
 		String firstName = firstNameField.getText().trim();
 		String lastName = lastNameField.getText().trim();
 		String email = emailField.getText().trim();
-		if (!email.isBlank() && !firstName.isBlank() && !lastName.isBlank()) {
-			currUser = Login.getLoginData().registerUser(firstName, lastName, email);
+		if (!username.isBlank() && !password.isBlank() && !firstName.isBlank() && !lastName.isBlank()
+				&& User.isEmailValid(email)) {
+			int userRole = User.Role.REGULAR_USER.getLevel();
+			if(User.isEducationalEmail(email)) {
+				userRole = User.Role.STUDENT.getLevel();
+			}
+			currUser = LoginDB.registerUser(username, firstName, lastName, email, password, userRole);
+
 			if (currUser == null) {
 				// ERROR
-				displayAlert("ERROR", "Failed to register user", "The email might already exist in our database");
+				displayAlert("ERROR", "Failed to register user", "");
 			} else {
 				// Continue, show menu to select quiz
-				root.setCenter(quizBox);
-				labelFullName.setText(currUser.toString());
-				resultBox.setVisible(true);
-				userDataHBox.setVisible(true);
-				quizDataToolBar.setVisible(true);
+				loggedIn();
 			}
 		} else {
 			displayAlert("ERROR", "Blank text fields", "At least one of the fields might be blank");
 		}
+	}
+
+	private void loggedIn() {
+		root.setCenter(quizBox);
+		labelFullName.setText(currUser.toStringLong());
+		resultBox.setVisible(true);
+		userDataHBox.setVisible(true);
+		if (currUser.hasEriCryptAccess()) {
+			encryptButton.setDisable(false);
+			decryptButton.setDisable(false);
+		} else {
+			encryptButton.setDisable(true);
+			decryptButton.setDisable(true);
+		}
+
+		quizDataToolBar.setVisible(true);
+
 	}
 
 	private void loadQuiz() {
@@ -203,8 +275,9 @@ public class Main extends Application {
 
 			FileChooser fileChooser = new FileChooser();
 			// fileChooser.setInitialDirectory(recordsDir);
-			fileChooser.setTitle("Open the '.txt' file containing a quiz");
+			fileChooser.setTitle("Open the '.txt' file containing a quiz or '.erixam' encrypted quiz");
 			fileChooser.getExtensionFilters().add(new ExtensionFilter("Text Files", "*.txt"));
+			fileChooser.getExtensionFilters().add(new ExtensionFilter("Erixam Files", "*.erixam"));
 			File selectedFile = fileChooser.showOpenDialog(new Stage());
 			quizBox.loadQuiz(Quiz.loadFromFile(selectedFile));
 		} catch (Exception e) {
@@ -212,8 +285,32 @@ public class Main extends Application {
 		}
 	}
 
+	private void encryptQuiz() {
+		try {
+			FileChooser fileChooser = new FileChooser();
+			fileChooser.setTitle("Encrypt the '.txt' file containing a quiz");
+			fileChooser.getExtensionFilters().add(new ExtensionFilter("Text Files", "*.txt"));
+			File selectedFile = fileChooser.showOpenDialog(new Stage());
+			FileCrypt.encryptFile(selectedFile.getAbsolutePath().toString());
+		} catch (Exception e) {
+			e.printStackTrace();
+		}
+	}
+
+	private void decryptQuiz() {
+		try {
+			FileChooser fileChooser = new FileChooser();
+			fileChooser.setTitle("Decrypt the '.erixam' encrypted quiz");
+			fileChooser.getExtensionFilters().add(new ExtensionFilter("Erixam Files", "*.erixam"));
+			File selectedFile = fileChooser.showOpenDialog(new Stage());
+			FileCrypt.decryptFile(selectedFile.getAbsolutePath().toString());
+		} catch (Exception e) {
+			e.printStackTrace();
+		}
+	}
+
 	public static void displayAlert(String title, String headerText, String contentText) {
-		Alert alert = new Alert(AlertType.ERROR);
+		Alert alert = new Alert(AlertType.WARNING); // CHANGE BASED ON SUCCESS!!!!
 		alert.setTitle(title);
 		alert.setHeaderText(headerText);
 		alert.setContentText(contentText);

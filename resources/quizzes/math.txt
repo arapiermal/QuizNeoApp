@@ -15,3 +15,6 @@ True:-1
 .
 TF,5,20:A eshte e vertete se shuma e cdo trekendeshi eshte 180 grade?
 True
+
+
+
